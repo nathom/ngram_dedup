@@ -2,6 +2,7 @@ use std::fs::write;
 use std::fs::File;
 use std::io;
 use std::process::Command;
+use std::thread::available_parallelism;
 use tempfile::NamedTempFile;
 
 use std::io::{BufReader, Write};
@@ -18,12 +19,12 @@ use serde_pickle::Result;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Name of the person to greet
-    #[arg(short, long)]
+    /// Name of the input file (pickle format)
+    /// Format: list[str]
     data_file: String,
 
-    /// Name of the person to greet
-    #[arg(short, long)]
+    /// Name of the output file (pickle format)
+    /// Format: list[{article: str, ids: [int]}]
     output_path: String,
 
     /// Number of times to greet
@@ -35,8 +36,12 @@ struct Args {
     n_gram_width: usize,
 
     /// Compare most similar articles with delta
-    #[arg(short, long, default_value_t = false)]
-    compare_delta: bool,
+    #[arg(long, default_value_t = false)]
+    explore: bool,
+
+    /// Compare most similar articles with delta
+    #[arg(long)]
+    threads: Option<usize>,
 }
 
 fn find_connected_components(edges: &[(usize, usize)]) -> Vec<HashSet<usize>> {
@@ -157,7 +162,7 @@ fn diff_articles_with_scores<'a>(
 ) {
     let mut pairs_iter = pairs.peekable();
 
-    while let Some((i, j, score)) = pairs_iter.peek().cloned() {
+    while let Some(_) = pairs_iter.peek() {
         let mut user_input = String::new();
 
         // Prompt the user for input
@@ -218,6 +223,13 @@ fn diff_articles_with_scores<'a>(
 }
 fn main() {
     let args = Args::parse();
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(
+            args.threads
+                .unwrap_or_else(|| available_parallelism().unwrap().into()),
+        )
+        .build_global()
+        .unwrap();
 
     let input_entries = read_articles_from_file(&args.data_file).unwrap();
     let input_entries = preprocess_entries(input_entries);
@@ -232,7 +244,7 @@ fn main() {
 
     let mut results = get_pair_scores(ngrams);
 
-    if args.compare_delta {
+    if args.explore {
         results
             .sort_unstable_by(|(_, _, score1), (_, _, score2)| score2.partial_cmp(score1).unwrap());
         diff_articles_with_scores(results.iter(), &input_entries);
