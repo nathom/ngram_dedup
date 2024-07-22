@@ -1,10 +1,13 @@
 import lorem
+import pickle
 import sys
-import json
 
 N = int(sys.argv[1])
 
 data = [lorem.paragraph() for _ in range(N)]
 
-with open("data.json", "w") as f:
-    json.dump(data, f, indent=4)
+with open("data.pkl", "wb") as f:
+    pickle.dump(data, f)
+
+with open("output.pkl", "rb") as f:
+    print(pickle.load(f))

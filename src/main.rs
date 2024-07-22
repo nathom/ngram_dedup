@@ -1,14 +1,14 @@
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use clap::Parser;
-use indicatif::{ProgressBar, ProgressStyle};
-use rayon::prelude::*;
-use serde::Serialize;
-use serde_json::Result;
 use std::fs::File;
 use std::io::{BufReader, Write};
 
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use clap::Parser;
+use indicatif::{ProgressBar, ProgressStyle};
 use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph::visit::Bfs;
+use rayon::prelude::*;
+use serde::Serialize;
+use serde_pickle::Result;
 
 fn find_connected_components(edges: &[(usize, usize)]) -> Vec<HashSet<usize>> {
     let mut graph = UnGraph::<usize, ()>::new_undirected();
@@ -80,7 +80,7 @@ struct MergedEntry {
 fn read_articles_from_file(file_path: &str) -> Result<Vec<Entry>> {
     let file = File::open(file_path).unwrap();
     let reader = BufReader::new(file);
-    let articles: Vec<Entry> = serde_json::from_reader(reader)?;
+    let articles: Vec<Entry> = serde_pickle::from_reader(reader, Default::default())?;
     Ok(articles)
 }
 
@@ -200,7 +200,7 @@ fn main() {
         100.0 * (input_len - output_len) / input_len
     );
 
-    let s = serde_json::to_string_pretty(&merged_articles).unwrap();
+    let s = serde_pickle::to_vec(&merged_articles, Default::default()).unwrap();
     let mut f = File::create(args.output_path).unwrap();
-    f.write_all(s.as_bytes()).unwrap();
+    f.write_all(&s).unwrap();
 }
