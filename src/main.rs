@@ -2,11 +2,10 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Result;
 use std::fs::File;
-use std::io::BufReader;
-use std::io::Write;
+use std::io::{BufReader, Write};
 
 use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph::visit::Bfs;
@@ -70,10 +69,7 @@ struct Args {
     n: usize,
 }
 
-#[derive(Deserialize)]
-struct Entry {
-    article: String,
-}
+type Entry = String;
 
 #[derive(Serialize)]
 struct MergedEntry {
@@ -104,7 +100,7 @@ fn get_pair_scores(ngrams: Vec<HashSet<String>>) -> Vec<(usize, usize, f64)> {
     let pb = &ProgressBar::new(num_comparisons as u64);
     pb.set_style(
         ProgressStyle::default_bar()
-            .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} {msg}")
+            .template("[{elapsed}/{duration}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} {msg}")
             .unwrap()
             .progress_chars("#>-"),
     );
@@ -131,14 +127,10 @@ fn print_histogram(scores: &Vec<(usize, usize, f64)>) {
 }
 
 fn preprocess(s: &Entry) -> Entry {
-    Entry {
-        article: s
-            .article
-            .to_lowercase()
-            .chars()
-            .filter(|c| c.is_alphanumeric() || c.is_whitespace())
-            .collect(),
-    }
+    s.to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect()
 }
 
 fn preprocess_entries(entries: Vec<Entry>) -> Vec<Entry> {
@@ -156,7 +148,7 @@ fn main() {
 
     let ngrams: Vec<HashSet<String>> = input_entries
         .par_iter()
-        .map(|a| generate_ngrams(&a.article, n))
+        .map(|a| generate_ngrams(&a, n))
         .collect();
 
     let results = get_pair_scores(ngrams);
@@ -182,7 +174,7 @@ fn main() {
         inds_written.extend(connected_inds);
 
         merged_articles.push(MergedEntry {
-            article: input_entries[ids[0]].article.clone(),
+            article: input_entries[ids[0]].clone(),
             ids,
         });
     }
@@ -194,9 +186,10 @@ fn main() {
         .enumerate()
         .filter(|(i, _)| !inds_written.contains(i))
         .map(|(i, entry)| MergedEntry {
-            article: entry.article,
+            article: entry,
             ids: vec![i],
         });
+
     merged_articles.extend(remaining_articles);
 
     let output_len = merged_articles.len() as f64;
